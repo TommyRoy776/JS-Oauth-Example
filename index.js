@@ -29,16 +29,16 @@ function request_handler(req, res) {
         redirect_to_googley(state,res);
         //get_channel_information(Channel, res);
     }else if(req.url.startsWith("/receive_code")){
-       /* const {code, state} = url.parse(req.url, true).query;
-		let session = all_sessions.find(session => session.state === state);
+        const {code, state,scope} = url.parse(req.url, true).query;
+		let session = Myall_sessions.find(session => session.state === state);
         if(code === undefined || state === undefined || session === undefined){
 			not_found(res);
 			return;
 		}
-		const {description, location} = session;
-		send_access_token_request(code, {description, location}, res);*/
-        res.writeHead(404, {"Content-Type": "text/html"});
-        res.end(`<h1>API Test Bitch  &#128549</h1>`);
+		const {Channel} = session;
+		send_access_token_request(code,Channel, res);
+      /*  res.writeHead(404, {"Content-Type": "text/html"});
+        res.end(`<h1>API Test  &#128549</h1>`);*/
     }else {
         not_found(res);
     }
@@ -103,8 +103,31 @@ function generateFile(result){
    
 }
 
-function receive_access_token(){
+function process_stream (stream, callback , ...args){
+	let body = "";
+	stream.on("data", chunk => body += chunk);
+	stream.on("end", () => callback(body, ...args));
+}
 
+function send_access_token_request(code, user_input, res){
+    const grand_type = "authorization_code";
+	const post_data = querystring.stringify({client_id, client_secret, code, grand_type});
+	let options = {
+		method: "POST",
+		headers:{
+			"Content-Type":"application/x-www-form-urlencoded"
+		}
+	}
+	https.request(
+		token_uri, 
+		options, 
+		(token_stream) => process_stream(token_stream, receive_access_token, user_input, res)
+	).end(post_data);
+}
+
+function receive_access_token(body,user_input,res){
+    const channel = JSON.parse(body);
+    get_channel_information(user_input,res);
 }
 
 function redirect_to_googley(state,res){
@@ -112,7 +135,7 @@ function redirect_to_googley(state,res){
      const response_type = "code"
      const redirect_uri = redirect_uris
     let googleyUri = querystring.stringify({client_id, scope,response_type, state,redirect_uri});
-    console.log(googleyUri);
+    //console.log(googleyUri);
     res.writeHead(302, {Location: `${auth_uri}?${googleyUri}`})
     .end();
 }
@@ -121,10 +144,6 @@ function not_found(res){
 	res.writeHead(404, {"Content-Type": "text/html"});
 	res.end(`<h1>404 not found &#128549</h1>`);
 }
-
-
-
-
 
 
 
