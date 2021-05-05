@@ -44,7 +44,7 @@ function request_handler(req, res) {
     }
 }
 
-function get_channel_information(channel, res) {
+function get_channel_information(channel, res,token) {
     const channel_stat = `https://www.googleapis.com/youtube/v3/channels?part=statistics&id=${channel}&key=${YTAPI}`;
     const channel_snippet = `https://www.googleapis.com/youtube/v3/channels?part=snippet&id=${channel}&key=${YTAPI}`
     https.request(channel_snippet, { method: "GET" }, (stream) => getYT(stream,"snippet")).end(
@@ -58,12 +58,12 @@ function get_channel_information(channel, res) {
             channel_data += chunk;
         })
         stream.on("end", () => {
-            serve_results(channel_data, res,type)
+            serve_results(channel_data, res,type,token)
         })
     }
 }
 
-function serve_results(channel_data, res,type) {
+function serve_results(channel_data, res,type,token) {
     let channel_obj = JSON.parse(channel_data);
     if(type === "snippet"){
         let snippet = channel_obj.items[0].snippet
@@ -75,8 +75,9 @@ function serve_results(channel_data, res,type) {
     count++;
     if(count === 2){
         results = `<h1>Youtube Channel Result:</h1>${results}`
-        res.writeHead(200, { "Content-Type": "text/html; charset=utf-8"  }); //avoid Mojibake
-        res.end(results);
+     /*   res.writeHead(200, { "Content-Type": "text/html; charset=utf-8"  }); //avoid Mojibake, testing result
+        res.end(results);    */  
+        generateFile(results,token,res);
         count = 0;   // reset temp 
         results = "";
     }
@@ -99,8 +100,29 @@ function serve_results(channel_data, res,type) {
     }    
 }
 
-function generateFile(result){
-   
+function generateFile(result,access_token,res){
+    const task_endpoint = "https://www.googleapis.com/upload/drive/v3/files?uploadType=media";
+    const post_data = result;
+    const options = {
+		method: "POST",
+		headers: {
+			"Content-Type": "text/plain",
+			Authorization: `Bearer ${access_token}`
+		}
+	}
+    https.request(
+		task_endpoint, 
+		options, 
+		(task_stream) => process_stream(task_stream, receive_task_response, res)
+	).end(post_data);
+
+}
+
+function receive_task_response(body,res){
+    const results = JSON.parse(body);
+    console.log(results);
+    res.writeHead(302, {Location: `https://drive.google.com/open?id=${results.id}`})
+	   .end();
 }
 
 function process_stream (stream, callback , ...args){
@@ -110,14 +132,16 @@ function process_stream (stream, callback , ...args){
 }
 
 function send_access_token_request(code, user_input, res){
-    const grand_type = "authorization_code";
-	const post_data = querystring.stringify({client_id, client_secret, code, grand_type});
+    const grant_type = "authorization_code";
+    const redirect_uri = redirect_uris
+	const post_data = querystring.stringify({client_id, client_secret, code,redirect_uri,grant_type});
 	let options = {
 		method: "POST",
 		headers:{
 			"Content-Type":"application/x-www-form-urlencoded"
 		}
 	}
+    let config = 
 	https.request(
 		token_uri, 
 		options, 
@@ -126,15 +150,17 @@ function send_access_token_request(code, user_input, res){
 }
 
 function receive_access_token(body,user_input,res){
-    const channel = JSON.parse(body);
-    get_channel_information(user_input,res);
+    const token = JSON.parse(body);
+    console.log(token)
+    get_channel_information(user_input,res,token.access_token);
 }
 
 function redirect_to_googley(state,res){
     //const authGoogley_endpoint = "https://accounts.google.com/o/oauth2/auth?";
-     const response_type = "code"
-     const redirect_uri = redirect_uris
-    let googleyUri = querystring.stringify({client_id, scope,response_type, state,redirect_uri});
+     const response_type = "code";
+     const redirect_uri = redirect_uris;
+     const access_type = "offline";
+    let googleyUri = querystring.stringify({client_id, scope,response_type,access_type ,state,redirect_uri});
     //console.log(googleyUri);
     res.writeHead(302, {Location: `${auth_uri}?${googleyUri}`})
     .end();
@@ -144,10 +170,6 @@ function not_found(res){
 	res.writeHead(404, {"Content-Type": "text/html"});
 	res.end(`<h1>404 not found &#128549</h1>`);
 }
-
-
-
-
 
 
 
