@@ -1,0 +1,44 @@
+title MING WAI TOMMY, CHAN 355 final project
+
+participant Google API
+participant User
+participant Server
+participant Youtube API
+participant Google Drive API
+
+
+
+User->Server:Browser requests "/" (root of our site)
+Server->User:Sends 200 Okay, Returns index.html (form)
+User->Server: User pastes Youtube channel ID to input field(supplies data:Channel). Browser requests "/search"
+
+note over Server: Creates **state**\nSaves {Channel, state}
+
+Server ->User:Sends 302 Redirect to Google's OAuth 2.0 endpoint + {ClientID, scope,response_type,access_type ,state,redirect_uri} \n Go to Google  API to login with my ClientID \nthe ability to interact with google drive account \nunder scope of https://www.googleapis.com/auth/drive  \nstate is used to lookup task on return
+User->Google API:Browser sees 302, \nimmediately redirects to Todoist API\nforwarding {ClientID, scope, state}
+
+Google API-> User:Login form / Select account
+User -> Google API : User Logs in(If no single account logged) 
+Google API-> User:Ask for permission
+User -> Google API: User agrees
+Google API-> User: 302 Redirect to our server + {code, state} \nCode represents the users \nexplicit permission for ClientID to\ninteract with this Users account \nunder scope guidelines.
+User->Server: Browser receives 302, \nimmediately redirects to Our Server\nforwarding {code, state,scope}
+note over Server: Uses **state** as key to lookup **Channel id**
+
+Server ->Google API:Sends {client_id, client_secret, code,redirect_uri,grant_type} for token
+
+Google API ->Server : Return token object {access_token,expires_in,refresh_token,scope,token_type}
+
+Server -> Youtube API:Request information of the Channel by Channel ID. Get channel_snippet first then channel_stat.   
+
+Youtube API -> Server: Youtube API returns back both information 200 ok
+
+Server ->Google Drive API:API requests to add a plain text file + {access_token}\nPOST https://www.googleapis.com/upload/drive/v3/files?uploadType=media
+
+Google Drive API ->Server: If create file successfully, 200 OK returns back {mimeType, kind,id,name}
+
+Server -> User: send 302 Redirect to URL of the file (https://drive.google.com/open?id=${returnID}
+
+User ->Google Drive API:Browser received 302 and redirect to the URL
+
+Google Drive API ->User : 200 OK, displays file 
