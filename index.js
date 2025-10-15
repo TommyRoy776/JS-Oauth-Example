@@ -21,6 +21,7 @@ function request_handler(req, res) {
         form.pipe(res); //transmit data to writable
     }else if (req.url.startsWith("/search")) {
         let { Channel } = url.parse(req.url, true).query;  //testing channel id: UChXKjLEzAB1K7EZQey7Fm1Q
+       // console.log(url.parse(req.url, true));
         if(Channel === ""){
             not_found(res);
         }
@@ -145,8 +146,9 @@ function send_access_token_request(code, user_input, res){ //request for token s
 	https.request(
 		token_uri, 
 		options, 
-		(token_stream) => process_stream(token_stream, receive_access_token, user_input, res)
-	).end(post_data);
+		(token_stream) => process_stream(token_stream, receive_access_token, user_input, res)  //when are respose is received
+	).end(post_data);  //Finishes sending the request. If any parts of the body are unsent, it will flush them to the stream.
+    // request.write = Sends a chunk of the body
 }
 
 function receive_access_token(body,user_input,res){ //After token got, then request for channel information
